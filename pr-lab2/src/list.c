@@ -26,9 +26,11 @@ int listDestroy(struct list* list) {
 }
 
 int listAdd(struct list* list, void *data) {
+	int ret = 0;
 	struct node *node = calloc(1, sizeof(*node));
 	if (node == NULL) {
-		return -1;
+		ret = -1;
+		goto _return;
 	}
 	node->data = data;
 
@@ -39,43 +41,30 @@ int listAdd(struct list* list, void *data) {
 		 */
 		list->head = node;
 		list->tail = node;
-		return 0;
+		goto _return_unlock;
 	}
 	list->tail->next = node;
 	node->prev = list->tail;
 	list->tail = node;
 
-	if(list->cond != NULL) {
+	if(list->cond!=NULL) {
 		pthread_cond_signal(list->cond);
 	}
+
+_return_unlock:
 	pthread_mutex_unlock(&list->lock);
-	return 0;
+_return:
+	return ret;
 }
 
-/*
- * If condition was specified, blocks when the list is empty
- */
-struct node *listPop(struct list* list) {
-	pthread_mutex_lock(&list->lock);
-
+void *listPop(struct list* list) {
 	if(list->tail == NULL) {
-		if(list->cond == NULL) {
-			/*
-			 * No condition, so we just return NULL if list
-			 * is empty
-			 */
-			return NULL;
-		}
-		while (list->tail == NULL) {
-			/*
-			 * No elements to pop, but we have a condition,
-			 * so we wait
-			 */
-			pthread_cond_wait(list->cond, &list->lock);
-		}
+		return NULL;
 	}
 
-	struct node *ret = list->tail;
+	pthread_mutex_lock(&list->lock);
+	struct node *node = list->tail;
+	void *ret = list->tail->data;
 
 	if(list->tail->prev != NULL) {
 		/*
@@ -92,12 +81,9 @@ struct node *listPop(struct list* list) {
 		list->head = NULL;
 		list->tail = NULL;
 	}
-	/*
-	 * Detach returned element from the list
-	 */
-	ret->prev = NULL;
 
 	pthread_mutex_unlock(&list->lock);
+	free(node);
 	return ret;
 }
 
@@ -120,4 +106,11 @@ int listFind(struct list *list, void* data) {
 		node = node->next;
 	}
 	return 0;
+}
+
+int listEmpty(struct list *list) {
+	pthread_mutex_lock(&list->lock);
+	int ret = list->head == NULL;
+	pthread_mutex_unlock(&list->lock);
+	return ret;
 }

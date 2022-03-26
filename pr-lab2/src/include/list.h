@@ -23,8 +23,8 @@ struct list {
 struct list* listCreate(pthread_cond_t *cond);
 int listDestroy(struct list* list);
 int listAdd(struct list* list, void *data);
-struct node *listPop(struct list* list);
+void *listPop(struct list* list);
 void listPrint(struct list *list);
 int listFind(struct list *list, void* data);
-
+int listEmpty(struct list *list);
 #endif //PR_LAB2_LIST_H
