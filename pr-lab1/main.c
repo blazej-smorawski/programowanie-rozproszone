@@ -73,6 +73,11 @@ int listFind(int data) {
 	return 0;
 }
 
+struct test {
+    void* ptr;
+    char pad[1];
+};
+
 int main(void) {
 	int elems[8] = {1, 632, 2179456, 211, -15, 42, 5, 2563};
 	for (int i = 0; i < sizeof(elems) / sizeof(elems[0]); i++) {
@@ -89,5 +94,8 @@ int main(void) {
 		found += listFind(elems[i]);
 	}
 	printf("Found %.2f%%", found/((double)sizeof(elems) / sizeof(elems[0]))*100);
+	int tsize = sizeof(struct test);
+	size_t size= _MINIASYNC_ALIGN_UP(33);
+
 	return 0;
 }
