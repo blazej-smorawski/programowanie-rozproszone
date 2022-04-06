@@ -2,102 +2,85 @@
 // Created by blazej-smorawski on 26/03/2022.
 //
 #include <unistd.h>
-#include <pthread.h>
 #include <stdlib.h>
-#include "workers.h"
+#include <stdio.h>
+#include "task.h"
 
 struct workers {
-    int working;
-    int stopped;
-    pthread_t *threads;
-    size_t threads_count;
-    struct list *input_list;
+    int in[2];
+    int out[2];
+    size_t tasks_done;
+    size_t tasks_count;
     struct list *output_list;
-    worker_task_fn task;
-    pthread_cond_t task_available;
-    pthread_mutex_t lock;
-    size_t waiting_for_task;
 };
 
-void *workerLoop(void *arg) {
-	struct workers *workers = arg;
-	while (workers->working) {
-		pthread_mutex_lock(&workers->lock);
-		if (workers->task == NULL) {
-			workers->waiting_for_task++;
-			pthread_cond_wait(&workers->task_available, &workers->lock);
-			workers->waiting_for_task--;
-		}
-		worker_task_fn my_task = workers->task;
-		pthread_mutex_unlock(&workers->lock);
-
-		void *task_input = listPop(workers->input_list);
-		if (task_input == NULL) {
-			/*
-			 * No task, so we wait
-			 */
-			usleep(10);
-			continue;
-		}
-		listAdd(workers->output_list, my_task(task_input));
-	}
-	return NULL;
+void worker_loop(struct workers *workers) {
+    struct task task;
+    struct task_output output;
+    while (read(workers->in[0], &task, sizeof(task))) {
+        printf("Perform task = %d by %d\n", task.prime.number, getpid());
+        output = task.task_fn(&task);
+        write(workers->out[1], &output, sizeof(output));
+    }
 }
 
 struct workers *workersCreate() {
-	struct workers *workers = calloc(1, sizeof(*workers));
-	workers->working = 1;
-	workers->threads_count = (sysconf(_SC_NPROCESSORS_ONLN) - 1) | 2;
-	workers->threads = calloc(workers->threads_count, sizeof(*workers->threads));
-	pthread_mutex_init(&workers->lock, NULL);
-	pthread_cond_init(&workers->task_available, NULL);
+    struct workers *workers = calloc(1, sizeof(*workers));
+    long n = (sysconf(_SC_NPROCESSORS_ONLN) - 1) | 2;
+    pipe(workers->in);
+    pipe(workers->out);
+    for (int i = 0; i < n; i++) {
+        int id = fork();
+        if (id > 0) {
+            /*parent process*/
+            printf("This is parent section [Process id: %d].\n", getpid());
+        } else if (id == 0) {
+            /*child process*/
+            printf("Fork created [Process id: %d].\n", getpid());
+            printf("Fork parent process id: %d.\n", getppid());
+            worker_loop(workers);
+            return NULL;
+        } else {
+            /*fork creation failed*/
+            printf("Fork creation failed!!!\n");
+            return NULL;
+        }
+    }
+    return workers;
+}
 
-	for(int i=0;i<workers->threads_count;i++) {
-		pthread_create(&workers->threads[i], NULL, workerLoop, workers);
-	}
-
-	return workers;
+int workersMap(struct workers *workers, struct list *input, struct list *output) {
+    workersFinish(workers);
+    struct task *task;
+    while ((task = listPop(input)) != NULL) {
+        write(workers->in[1], task, sizeof(*task));
+        printf("Sent to workers = %d\n", task->prime.number);
+        workers->tasks_count++;
+        free(task);
+    }
+    workers->output_list = output;
+    return 0;
 }
 
 void workersFinish(struct workers *workers) {
-	while (!listEmpty(workers->input_list)) {
-		usleep(10);
-	}
-
-	pthread_mutex_lock(&workers->lock);
-	workers->task = NULL;
-	pthread_mutex_unlock(&workers->lock);
-
-	while (workers->waiting_for_task != workers->threads_count) {
-		usleep(10);
-	}
-
+    struct task_output *output;
+    while (workers->tasks_done != workers->tasks_count) {
+        output = calloc(1, sizeof(*output));
+        if(read(workers->out[0], output, sizeof(*output))) {
+            printf("Received output\n");
+            listAdd(workers->output_list, (void *) output);
+            workers->tasks_done++;
+        } else {
+            printf("Worker output pipe closed!!!\n");
+            break;
+        }
+    }
 }
 
 void workersDestroy(struct workers *workers) {
-	workersFinish(workers);
-	workers->working=0;
-	pthread_cond_broadcast(&workers->task_available);
-	/*
-	 * All threads will spin one more time
-	 */
-	for(int i=0;i<workers->threads_count;i++) {
-		pthread_join(workers->threads[i], NULL);
-	}
-	free(workers->threads);
-	pthread_mutex_destroy(&workers->lock);
-	pthread_cond_destroy(&workers->task_available);
-	free(workers);
-}
-
-int workersMap(struct workers *workers, struct list *input, struct list *output, worker_task_fn task) {
-	while (workers->waiting_for_task != workers->threads_count) {
-		usleep(10);
-	}
-
-	workers->input_list = input;
-	workers->output_list = output;
-	workers->task = task;
-	pthread_cond_broadcast(&workers->task_available);
-	return 0;
+    close(workers->in[0]);
+    close(workers->in[1]);
+    close(workers->out[0]);
+    close(workers->out[1]);
+    free(workers);
 }

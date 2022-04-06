@@ -4,26 +4,16 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "list.h"
-#include "workers.h"
-
-void *isPrimeTask(void *arg) {
-	int ret = 1;
-	unsigned long number = (long)arg;
-	for(long i=2;i<number;i++) {
-		if(number%i==0) {
-			ret = 0;
-			break;
-		}
-	}
-	printf("[%lu] %lu isPrime: %d\n",pthread_self(), number, ret);
-	return (void*)ret;
-}
+#include <unistd.h>
+#include "task.h"
 
 void addRandomData(struct list *list) {
 	srand(time(NULL));
-	for(int i=0;i<100;i++) {
-		listAdd(list, (void*)rand());
+	for(int i=0;i<10;i++) {
+        struct task *task = calloc(1,sizeof(*task));
+        task->task_fn = is_prime_task;
+        task->prime.number = rand();
+		listAdd(list, task);
 	}
 }
 
@@ -32,11 +22,23 @@ int main(void) {
 	struct list *output_queue = listCreate(NULL);
 	addRandomData(input_queue);
 	struct workers *workers = workersCreate();
-	workersMap(workers, input_queue, output_queue, isPrimeTask);
+    if(workers == NULL) {
+        /*
+         * Child exits
+         */
+        return 0;
+    }
+	workersMap(workers, input_queue, output_queue);
 	workersFinish(workers);
-	printf("----====----\n");
-	addRandomData(input_queue);
-	workersMap(workers, input_queue, output_queue, isPrimeTask);
-	workersDestroy(workers);
+
+    struct task_output *task_output;
+    while ((task_output = listPop(output_queue)) != NULL) {
+        printf("Output: %d is prime %d\n",task_output->prime.number,task_output->prime.is_prime);
+        free(task_output);
+    }
+
+    listDestroy(input_queue);
+    listDestroy(output_queue);
+    workersDestroy(workers);
 	return 0;
 }
