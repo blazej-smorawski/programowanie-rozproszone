@@ -52,6 +52,8 @@ struct workers *workersCreate() {
 int workersMap(struct workers *workers, struct list *input, struct list *output) {
     workersFinish(workers);
     struct task *task;
+    workers->tasks_done = 0;
+    workers->tasks_count = 0;
     while ((task = listPop(input)) != NULL) {
         write(workers->in[1], task, sizeof(*task));
         printf("Sent to workers = %d\n", task->prime.number);
@@ -64,6 +66,7 @@ int workersMap(struct workers *workers, struct list *input, struct list *output)
 
 void workersFinish(struct workers *workers) {
     struct task_output *output;
+    printf("Tasks done=%d, tasks count=%d\n",workers->tasks_done,workers->tasks_count);
     while (workers->tasks_done != workers->tasks_count) {
         output = calloc(1, sizeof(*output));
         if(read(workers->out[0], output, sizeof(*output))) {

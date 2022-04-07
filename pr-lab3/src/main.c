@@ -36,6 +36,14 @@ int main(void) {
         printf("Output: %d is prime %d\n",task_output->prime.number,task_output->prime.is_prime);
         free(task_output);
     }
+    printf("-------------------------\n");
+    addRandomData(input_queue);
+    workersMap(workers, input_queue, output_queue);
+    workersFinish(workers);
+    while ((task_output = listPop(output_queue)) != NULL) {
+        printf("Output: %d is prime %d\n",task_output->prime.number,task_output->prime.is_prime);
+        free(task_output);
+    }
 
     listDestroy(input_queue);
     listDestroy(output_queue);
