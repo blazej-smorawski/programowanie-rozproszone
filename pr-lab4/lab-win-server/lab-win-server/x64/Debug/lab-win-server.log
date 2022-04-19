@@ -1,3 +1,3 @@
 ﻿  server.c
-D:\Studia\Sem 4\przetwarzanie-rozproszone\lab-win-server\lab-win-server\server.c(29,9): warning C4101: "iSendResult": lokalna zmienna, do której nie istnieje odwołanie
-  lab-win-server.vcxproj -> D:\Studia\Sem 4\przetwarzanie-rozproszone\lab-win-server\x64\Debug\lab-win-server.exe
+E:\GitHub\programowanie-rozproszone\pr-lab4\lab-win-server\lab-win-server\server.c(29,9): warning C4101: "iSendResult": lokalna zmienna, do której nie istnieje odwołanie
+  lab-win-server.vcxproj -> E:\GitHub\programowanie-rozproszone\pr-lab4\lab-win-server\x64\Debug\lab-win-server.exe
