@@ -1,0 +1,3 @@
+﻿  client.c
+D:\Studia\Sem 4\przetwarzanie-rozproszone\lab-win-client\lab-win-client\client.c(34,16): warning C4133: "funkcja": niezgodne typy - od "char *" do "LPWSTR"
+  lab-win-client.vcxproj -> D:\Studia\Sem 4\przetwarzanie-rozproszone\lab-win-client\x64\Debug\lab-win-client.exe
