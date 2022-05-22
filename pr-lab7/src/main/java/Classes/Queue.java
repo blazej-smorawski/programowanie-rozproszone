@@ -47,7 +47,7 @@ public class Queue {
             capacity--;
             notify();
             leave_count++;
-            times.add(System.currentTimeMillis());
+            times.add(System.currentTimeMillis()-agent.enter_last_queue);
 
             average_time = 0;
             for (long t : times) {
